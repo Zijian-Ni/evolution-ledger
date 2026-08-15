@@ -1,0 +1,17 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 20 }
+      - run: npm install
+      - run: npm test
+      - run: npm run build
+      - name: Ledger self-check
+        run: |
+          node src/cli.js init /tmp/l.jsonl --force
+          ELEDGER_PATH=/tmp/l.jsonl node src/cli.js cycle --hypothesis h --kind prompt --path p --before a --after b --metric m --m-before 1 --m-after 2 --pass --decision keep
+          ELEDGER_PATH=/tmp/l.jsonl node src/cli.js verify
