@@ -26,6 +26,27 @@ export const STRINGS = {
       ['Untrustworthy history', 'A log an agent can rewrite is not evidence. Hash chaining makes tampering visible.'],
     ],
     empty: 'No ledger loaded yet.',
+    // EL-1: Verify verdicts
+    verdictChainBroken:      '❌ CHAIN_BROKEN — entry hash or prevHash mismatch',
+    verdictHistoryRewritten: '⚠️ HISTORY_REWRITTEN — an external anchor points at a hash no longer in the chain',
+    verdictVerifiedAnchored: '✅ VERIFIED_ANCHORED — chain intact + matches external anchor',
+    verdictVerifiedLocal:    '🔒 VERIFIED_LOCAL_ONLY — chain intact, no external anchor yet',
+    verdictVerifiedSigned:   '🏅 VERIFIED_SIGNED — chain intact, Merkle checkpoint signature valid',
+    verifyResult: 'Verify Result',
+    // EL-4: Trend stats
+    trendWeek: 'Week',
+    trendPassRate: 'Pass rate',
+    trendRollbacks: 'Rollbacks',
+    trendChanges: 'Changes',
+    insights: 'Insights',
+    heatmapTitle: 'Policy Heatmap',
+    heatmapSub: 'Rollback rate by kind × week',
+    // EL-4: Timeline
+    revertedEntry: 'reverted',
+    brokenEntry: 'broken chain',
+    // Multi-ledger
+    multiLedger: 'Multiple ledgers',
+    agent: 'Agent',
   },
   zh: {
     tagline: '一个 AI Agent 是怎么被调教出来的',
@@ -54,8 +75,30 @@ export const STRINGS = {
       ['不可信的历史', 'Agent 能改写的日志不叫证据。哈希链让篡改立刻可见。'],
     ],
     empty: '还没有加载账本。',
+    // EL-1: Verify verdicts
+    verdictChainBroken:      '❌ 链断裂 — 条目哈希或 prevHash 不匹配',
+    verdictHistoryRewritten: '⚠️ 历史被改写 — 外部锚点指向链中不存在的哈希',
+    verdictVerifiedAnchored: '✅ 已锚定验证 — 链完整 + 匹配外部锚点',
+    verdictVerifiedLocal:    '🔒 仅本地验证 — 链完整，尚无外部锚点',
+    verdictVerifiedSigned:   '🏅 签名验证通过 — 链完整，Merkle 检查点签名有效',
+    verifyResult: '校验结果',
+    // EL-4: Trend stats
+    trendWeek: '周',
+    trendPassRate: '通过率',
+    trendRollbacks: '回滚次数',
+    trendChanges: '改动次数',
+    insights: '洞察',
+    heatmapTitle: '策略热力图',
+    heatmapSub: '各类型改动的回滚率（按周）',
+    // EL-4: Timeline
+    revertedEntry: '已回滚',
+    brokenEntry: '链断裂',
+    // Multi-ledger
+    multiLedger: '多账本',
+    agent: '代理',
   },
 };
+
 export function t(lang, key) {
   return STRINGS[lang]?.[key] ?? STRINGS.en[key] ?? key;
 }

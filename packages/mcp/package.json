@@ -1,0 +1,27 @@
+{
+  "name": "eledger-mcp",
+  "version": "0.1.0",
+  "description": "MCP server for Evolution Ledger — exposes ledger tools to AI agents via stdio transport",
+  "author": "Zijian Ni <xiaoni112233@outlook.com>",
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "eledger-mcp": "./src/server.js"
+  },
+  "main": "./src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test tests/server.test.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.0.0",
+    "zod": "^3.22.0"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "evolution-ledger",
+    "ai-agents",
+    "openclaw"
+  ]
+}

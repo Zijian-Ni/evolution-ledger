@@ -20,6 +20,7 @@ export const ENTRY_TYPES = [
   'decision',     // keep / revert / iterate
   'rollback',     // compensating entry restoring prior state pointer
   'note',         // human annotation
+  'checkpoint',   // EL-A1: signed Merkle checkpoint
 ];
 
 export const CHANGE_KINDS = [

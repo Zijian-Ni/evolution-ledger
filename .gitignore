@@ -4,3 +4,6 @@ dist/
 *.log
 .env
 ledger-data/
+packages/mcp/node_modules/
+.eledger-ots-*.hex
+.eledger-ots-*.hex.ots

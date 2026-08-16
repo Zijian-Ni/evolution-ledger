@@ -1,0 +1,65 @@
+name: ✨ Feature Request
+description: Propose a new feature or enhancement.
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a feature! Please review the project constraints first:
+        
+        - **Zero runtime deps** (CLI) — proposals requiring new npm deps for the main package won't be accepted unless compelling.
+        - **Local-first** — no cloud calls, no external APIs required for core functionality.
+        - **CN/EN bilingual** — new UI text needs both languages.
+        - **MIT** — contributions must be compatible.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the pain point or use case.
+      placeholder: "As an AI agent, I need to... so that I can..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: How would you like this to work?
+      placeholder: "Add a new CLI command `eledger checkpoint` that..."
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What other approaches did you consider?
+
+  - type: dropdown
+    id: area
+    attributes:
+      label: Area
+      options:
+        - CLI
+        - Core (hash chain / entry model)
+        - Anchoring (EL-1)
+        - Record/stdin (EL-2)
+        - MCP server (EL-3)
+        - Attest/signatures (EL-A1)
+        - Viewer / UI
+        - Heatmap / Insights (EL-A2)
+        - Documentation
+        - Other
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraint check
+      options:
+        - label: This does not require new runtime dependencies in the main package
+        - label: This preserves local-first behaviour (no required cloud calls)
+        - label: I am willing to implement this and open a PR

@@ -1,4 +1,6 @@
 import './style.css';
+import './aurora-ui/aurora-ui.css';
+import './aurora-ui/aurora-ui.v2.css';
 import { Ledger, formatMarkdown } from './core.js';
 import { t, STRINGS } from './i18n.js';
 import { parseAITextToDrafts, applyDraftsToLedger } from './parse-ai.js';
@@ -6,6 +8,7 @@ import { parseAITextToDrafts, applyDraftsToLedger } from './parse-ai.js';
 const state = {
   lang: localStorage.getItem('el_lang') || 'en',
   ledger: null,
+  ledgers: [],           // EL-4: multi-ledger
   filter: 'all',
   query: '',
   selected: null,
@@ -13,10 +16,30 @@ const state = {
   pasteText: '',
   pastePreview: null,
   formOpen: false,
+  verifyResult: null,    // EL-1: last verify result
+  insightsOpen: false,   // EL-A2: heatmap panel
 };
 
 const ICONS = {
   hypothesis: '💡', change: '🔧', eval: '📊', decision: '⚖️', rollback: '↩️', note: '📝',
+  checkpoint: '🏅',
+};
+
+// EL-1: verdict to visual state
+const VERDICT_CLASS = {
+  CHAIN_BROKEN:        'verdict--broken',
+  HISTORY_REWRITTEN:   'verdict--rewritten',
+  VERIFIED_ANCHORED:   'verdict--anchored',
+  VERIFIED_LOCAL_ONLY: 'verdict--local',
+  VERIFIED_SIGNED:     'verdict--signed',
+};
+
+const VERDICT_ICON = {
+  CHAIN_BROKEN:        '❌',
+  HISTORY_REWRITTEN:   '⚠️',
+  VERIFIED_ANCHORED:   '✅',
+  VERIFIED_LOCAL_ONLY: '🔒',
+  VERIFIED_SIGNED:     '🏅',
 };
 
 const app = document.getElementById('app');
@@ -87,14 +110,18 @@ function render() {
       </div>
     </section>
 
+    ${state.verifyResult ? renderVerifyCard(state.verifyResult, lang) : ''}
+
     <section class="controls">
-      ${['all', 'hypothesis', 'change', 'eval', 'decision', 'rollback', 'note'].map(f => `
+      ${['all', 'hypothesis', 'change', 'eval', 'decision', 'rollback', 'note', 'checkpoint'].map(f => `
         <button class="chip ${state.filter === f ? 'active' : ''}" data-filter="${f}">
           ${f === 'all' ? t(lang, 'all') : (ICONS[f] || '') + ' ' + f}
         </button>`).join('')}
       <input class="search" id="search" placeholder="🔍 search title / body / path" value="${esc(state.query)}" />
+      <button class="btn btn--ghost" id="insightsBtn">📊 ${t(lang, 'insights')}</button>
     </section>
 
+    ${renderInsightsPanel(L, lang)}
     <section class="timeline" id="timeline">${renderEntries()}</section>
     ` : `
       <div class="dropzone" id="drop">${esc(t(lang, 'drop'))}</div>
@@ -145,6 +172,113 @@ function renderThemeDock(lang) {
     </div>
   </div>
   <div class="el-custom-bg" id="customBgLayer" aria-hidden="true"></div>`;
+}
+
+// ─── EL-1: Verify result card (aurora-ring appears only here) ─────────────
+function renderVerifyCard(v, lang) {
+  const cls = VERDICT_CLASS[v.verdict] || '';
+  const icon = VERDICT_ICON[v.verdict] || '?';
+  const msgKey = 'verdict' + v.verdict.split('_').map(w => w[0] + w.slice(1).toLowerCase()).join('');
+  const msg = t(lang, msgKey) || v.verdict;
+  const isOk = v.ok;
+  return `
+  <div class="verify-card ${cls}" role="status" aria-live="polite">
+    <div class="aurora-ring verify-ring ${isOk ? 'ring--ok' : 'ring--bad'}"></div>
+    <div class="verify-card-body">
+      <span class="verify-icon">${icon}</span>
+      <div>
+        <strong>${t(lang, 'verifyResult')}</strong>
+        <p>${esc(msg)}</p>
+        ${v.anchors?.length ? `<small>${v.anchors.length} anchor(s)</small>` : ''}
+        ${v.issues?.length ? `<details><summary>${v.issues.length} issue(s)</summary><pre>${esc(JSON.stringify(v.issues, null, 2))}</pre></details>` : ''}
+      </div>
+    </div>
+  </div>`;
+}
+
+// ─── EL-A2: Policy heatmap (Insights panel) ──────────────────────────────
+function renderInsightsPanel(ledger, lang) {
+  if (!state.insightsOpen || !ledger) return '';
+
+  // Build week × kind matrix
+  const weekSet = new Set();
+  const kindSet = new Set();
+  const matrix = {};  // matrix[week][kind] = {changes, rollbacks}
+
+  const rolledBackOf = new Set(
+    ledger.entries.filter(e => e.type === 'rollback' && e.rollbackOf).map(e => e.rollbackOf)
+  );
+
+  for (const e of ledger.entries) {
+    if (e.type !== 'change') continue;
+    const d = new Date(e.ts);
+    const jan1 = new Date(d.getFullYear(), 0, 1);
+    const week = Math.ceil(((d - jan1) / 86400000 + jan1.getDay() + 1) / 7);
+    const wk = `${d.getFullYear()}-W${String(week).padStart(2, '0')}`;
+    const kind = e.change?.kind || 'other';
+    weekSet.add(wk);
+    kindSet.add(kind);
+    if (!matrix[wk]) matrix[wk] = {};
+    if (!matrix[wk][kind]) matrix[wk][kind] = { changes: 0, rollbacks: 0 };
+    matrix[wk][kind].changes++;
+    if (rolledBackOf.has(e.hash)) matrix[wk][kind].rollbacks++;
+  }
+
+  const weeks = [...weekSet].sort();
+  const kinds = [...kindSet].sort();
+
+  if (!weeks.length) return `<section class="insights-panel"><p class="muted">No change entries yet.</p></section>`;
+
+  // Build CSS grid heatmap
+  const cols = weeks.length + 1;  // +1 for label column
+  const rows = kinds.length + 1;  // +1 for header row
+
+  function rollbackRate(w, k) {
+    const cell = matrix[w]?.[k];
+    if (!cell || cell.changes === 0) return null;
+    return cell.rollbacks / cell.changes;
+  }
+
+  function rateColor(rate) {
+    if (rate === null) return 'transparent';
+    // ok (green) → danger (red) interpolation
+    const r = Math.round(rate * 255);
+    const g = Math.round((1 - rate) * 200);
+    return `rgba(${r},${g},60,0.7)`;
+  }
+
+  const grid = [
+    // header row
+    `<div class="hm-corner"></div>`,
+    ...weeks.map(w => `<div class="hm-header" title="${esc(w)}">${esc(w.slice(5))}</div>`),
+    // data rows
+    ...kinds.flatMap(k => [
+      `<div class="hm-kind">${esc(k)}</div>`,
+      ...weeks.map(w => {
+        const rate = rollbackRate(w, k);
+        const cell = matrix[w]?.[k];
+        const label = rate !== null ? `${Math.round(rate * 100)}%` : '';
+        return `<div class="hm-cell" style="background:${rateColor(rate)}" 
+          title="${esc(k)} ${esc(w)}: ${cell?.rollbacks ?? 0}/${cell?.changes ?? 0} rollback">${label}</div>`;
+      }),
+    ]),
+  ].join('');
+
+  return `
+  <section class="insights-panel">
+    <div class="insights-head">
+      <strong>📊 ${t(lang, 'heatmapTitle')}</strong>
+      <span class="muted">${t(lang, 'heatmapSub')}</span>
+      <button class="btn btn--ghost" id="closeInsights">✕</button>
+    </div>
+    <div class="heatmap-grid" style="--hm-cols:${cols};--hm-rows:${rows}">
+      ${grid}
+    </div>
+    <div class="hm-legend">
+      <span style="background:rgba(0,200,60,0.7)" class="hm-swatch"></span> ok
+      <span style="background:rgba(255,60,60,0.7)" class="hm-swatch"></span> high rollback
+    </div>
+  </section>`;
 }
 
 function renderPasteModal(lang) {
@@ -292,16 +426,22 @@ function renderEntries() {
       metric += `<div class="metric"><span>decision</span><span>${esc(e.decision.action)}</span></div>`;
     }
     const follows = e.meta?.follows ? `<span class="link-pill">↳ ${esc(String(e.meta.follows).slice(0, 8))}…</span>` : '';
+    // EL-4: reverted entries get strikethrough class
+    // broken chain entries get highlighted in red
+    const isBroken = state.verifyResult && !state.verifyResult.ok &&
+      state.verifyResult.issues?.some(iss => iss.id === e.id || iss.index === i);
+
     return `
-    <article class="entry ${isRolled ? 'reverted' : ''}" data-type="${e.type}" data-hash="${e.hash}" style="animation-delay:${Math.min(i * 30, 400)}ms">
+    <article class="entry ${isRolled ? 'reverted entry--reverted' : ''} ${isBroken ? 'entry--broken' : ''}" data-type="${e.type}" data-hash="${e.hash}" style="animation-delay:${Math.min(i * 30, 400)}ms" id="entry-${e.hash.slice(0,12)}">
       <div class="entry-head">
         <span class="tag ${e.type}">${ICONS[e.type] || ''} ${e.type}</span>
         <span class="agent-tag">@${esc(e.agent)}</span>
-        ${isRolled ? `<span class="tag rollback">reverted</span>` : ''}
+        ${isRolled ? `<span class="chip chip--warn">${t(state.lang, 'revertedEntry')}</span>` : ''}
+        ${isBroken ? `<span class="chip chip--danger">${t(state.lang, 'brokenEntry')}</span>` : ''}
         ${follows}
         <span class="hash">${esc(e.hash.slice(0, 12))}…</span>
       </div>
-      <h3>${esc(e.title || e.type)}</h3>
+      <h3 class="${isRolled ? 'title--reverted' : ''}">${esc(e.title || e.type)}</h3>
       ${e.body ? `<p>${esc(e.body.slice(0, 220))}${e.body.length > 220 ? '…' : ''}</p>` : ''}
       ${metric}
     </article>`;
@@ -409,10 +549,35 @@ function bind() {
   });
   document.getElementById('verifyBtn')?.addEventListener('click', () => {
     if (!state.ledger) return alert(t(state.lang, 'empty'));
+    // EL-1: four-state verify using local chain only (anchors require node:child_process)
     const v = state.ledger.verify();
-    alert(v.ok
-      ? `✅ ${t(state.lang, 'chainOk')} — ${v.count} entries`
-      : `❌ ${t(state.lang, 'chainBad')}\n\n` + v.issues.map(i => `#${i.index} ${i.error}`).join('\n'));
+    let verdict;
+    if (!v.ok) {
+      verdict = 'CHAIN_BROKEN';
+      // Scroll to the first broken entry and highlight it
+      if (v.issues.length > 0) {
+        const brokenHash = v.issues[0].id ? state.ledger.entries.find(e => e.id === v.issues[0].id)?.hash : null;
+        if (brokenHash) {
+          const el = document.querySelector(`.entry[data-hash="${brokenHash}"]`);
+          if (el) {
+            el.classList.add('entry--broken');
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          }
+        }
+      }
+    } else {
+      verdict = 'VERIFIED_LOCAL_ONLY';
+    }
+    state.verifyResult = { verdict, ok: v.ok, count: v.count, issues: v.issues, anchors: [] };
+    render();
+  });
+  document.getElementById('insightsBtn')?.addEventListener('click', () => {
+    state.insightsOpen = !state.insightsOpen;
+    render();
+  });
+  document.getElementById('closeInsights')?.addEventListener('click', () => {
+    state.insightsOpen = false;
+    render();
   });
   document.getElementById('exportBtn')?.addEventListener('click', () => {
     if (!state.ledger) return alert(t(state.lang, 'empty'));

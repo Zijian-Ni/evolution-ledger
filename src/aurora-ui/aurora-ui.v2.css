@@ -1,0 +1,226 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   AURORA UI v2 — "plugin-grade" additions
+   Import AFTER aurora-ui.css. Purely additive: no v1 selector is redefined.
+
+   Five aesthetic laws this file encodes:
+   1. Instrument, not ornament — every card shows a reading (value + unit + state).
+   2. One focus per screen — `.aurora-ring` stays unique; everything else ≤150ms.
+   3. Density layers — browse layer (bento) and focus layer (drawer) never mix.
+   4. OKLCH colour discipline — perceptual lightness holds across both themes.
+   5. Texture triad, one each — grain (page), glow (lamps/ring), scanlines (term).
+      Never two on the same element.
+   ═══════════════════════════════════════════════════════════════════════ */
+
+@supports (color: oklch(70% 0.1 200)) {
+  :root {
+    --aurora-teal-400: oklch(78% 0.14 180);
+    --aurora-cyan-400: oklch(80% 0.13 210);
+    --aurora-violet-400: oklch(72% 0.15 295);
+    --aurora-pink-400: oklch(74% 0.16 350);
+    --status-ok: oklch(76% 0.17 160);
+    --status-warn: oklch(80% 0.16 85);
+    --status-danger: oklch(68% 0.19 25);
+    --status-info: oklch(72% 0.14 250);
+  }
+  [data-theme="light"] {
+    --status-ok: oklch(58% 0.15 160);
+    --status-warn: oklch(58% 0.14 75);
+    --status-danger: oklch(55% 0.20 25);
+    --status-info: oklch(56% 0.15 250);
+  }
+}
+
+/* ── texture ①: page grain. One inline SVG, zero requests, never on a card ── */
+body::after {
+  content: "";
+  position: fixed; inset: 0;
+  pointer-events: none;
+  z-index: var(--z-base);
+  opacity: .025;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='128' height='128'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='128' height='128' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+[data-theme="light"] body::after { opacity: .018; mix-blend-mode: multiply; }
+
+/* ───────────────────────────── bento browse layer ───────────────────────────── */
+
+.bento {
+  display: grid;
+  gap: var(--sp-4);
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.bento > .plug-card--wide { grid-column: span 2; }
+.bento > .plug-card--tall { grid-row: span 2; }
+@media (max-width: 680px) {
+  .bento > .plug-card--wide { grid-column: span 1; }
+  .bento > .plug-card--tall { grid-row: span 1; }
+}
+
+/* ───────────────────────────── the instrument card ─────────────────────────────
+   Structure is fixed: status row / main readout / body / action row.
+   A card with nothing to read does not deserve to be a card.
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.plug-card {
+  display: grid;
+  grid-template-rows: auto auto 1fr auto;
+  gap: var(--sp-3);
+  padding: var(--sp-4);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow: var(--shadow-card);
+  transform: perspective(900px) rotateX(var(--tx, 0deg)) rotateY(var(--ty, 0deg));
+  transition: transform var(--dur-fast) var(--ease-out), border-color var(--dur-fast);
+  will-change: transform;
+}
+.plug-card:hover { border-color: var(--border-strong); }
+.plug-card:focus-within { border-color: var(--accent); }
+
+.plug-card__status {
+  display: flex; align-items: center; gap: var(--sp-2);
+  font: 600 var(--text-xs)/1.4 var(--font-mono);
+  color: var(--ink-3);
+  letter-spacing: var(--tracking-caps);
+  text-transform: uppercase;
+}
+.plug-card__status .spacer { margin-left: auto; }
+.plug-card__body { font-size: var(--text-sm); color: var(--ink-2); min-height: 0; }
+.plug-card__actions { display: flex; align-items: center; gap: var(--sp-2); flex-wrap: wrap; }
+
+/* ── texture ②: glow. ONLY on lamps and .aurora-ring ── */
+.lamp {
+  width: 8px; height: 8px; flex: none;
+  border-radius: 50%;
+  background: var(--status-ok);
+  box-shadow: 0 0 8px 1px color-mix(in oklch, var(--status-ok) 70%, transparent);
+}
+.lamp--ok     { background: var(--status-ok);     box-shadow: 0 0 8px 1px color-mix(in oklch, var(--status-ok) 70%, transparent); }
+.lamp--warn   { background: var(--status-warn);   box-shadow: 0 0 8px 1px color-mix(in oklch, var(--status-warn) 70%, transparent); }
+.lamp--danger { background: var(--status-danger); box-shadow: 0 0 8px 1px color-mix(in oklch, var(--status-danger) 70%, transparent); }
+.lamp--info   { background: var(--status-info);   box-shadow: 0 0 8px 1px color-mix(in oklch, var(--status-info) 70%, transparent); }
+.lamp--idle   { background: var(--ink-3);         box-shadow: none; opacity: .6; }
+
+@media (prefers-reduced-motion: no-preference) {
+  .lamp--live { animation: lamp-breathe 2.6s var(--ease-in-out) infinite; }
+  @keyframes lamp-breathe { 50% { opacity: .5; } }
+}
+
+/* ── the reading itself: big mono number, small unit ── */
+.readout {
+  font: 700 var(--text-2xl)/1 var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -.02em;
+  color: var(--ink-1);
+  display: flex; align-items: baseline; gap: 2px;
+}
+.readout small { font-size: var(--text-sm); font-weight: 500; color: var(--ink-3); margin-left: 4px; }
+.readout--ok { color: var(--status-ok); }
+.readout--warn { color: var(--status-warn); }
+.readout--danger { color: var(--status-danger); }
+.readout--sm { font-size: var(--text-lg); }
+
+.readout-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(84px, 1fr)); gap: var(--sp-3); }
+.readout-grid__cell { display: flex; flex-direction: column; gap: 2px; }
+.readout-grid__cell .u-caps { font-size: 10px; }
+
+/* Sparkline strip built from CSS only — no chart library, ever. */
+.spark { display: flex; align-items: flex-end; gap: 2px; height: 28px; }
+.spark__bar { flex: 1; min-width: 2px; border-radius: 1px; background: color-mix(in oklch, var(--accent) 62%, transparent); height: calc(var(--v, 0) * 1%); }
+.spark__bar--peak { background: var(--accent); }
+
+/* ───────────────────────────── texture ③: terminal ───────────────────────────── */
+
+.term {
+  position: relative;
+  background: var(--code-bg);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md);
+  font: 400 var(--text-sm)/1.7 var(--font-mono);
+  padding: var(--sp-4);
+  overflow: auto;
+  max-height: var(--term-max, 340px);
+  color: var(--ink-2);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+.term::before {
+  content: ""; position: absolute; inset: 0; pointer-events: none;
+  background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(255, 255, 255, .015) 2px 3px);
+}
+[data-theme="light"] .term::before { background: repeating-linear-gradient(0deg, transparent 0 2px, rgba(0, 0, 0, .02) 2px 3px); }
+.term__prompt::before { content: "❯ "; color: var(--accent); }
+.term__line { display: block; }
+.term__line--err { color: var(--status-danger); }
+.term__line--ok { color: var(--status-ok); }
+.term__line--dim { color: var(--ink-3); }
+
+/* ───────────────────────────── command palette (⌘K) ───────────────────────────── */
+
+.palette-scrim {
+  position: fixed; inset: 0; z-index: var(--z-overlay);
+  background: rgba(2, 5, 15, .58);
+  backdrop-filter: blur(3px);
+  display: grid; place-items: start center;
+  padding-top: 12vh;
+}
+.palette-scrim[hidden] { display: none; }
+
+.palette {
+  width: min(560px, 92vw);
+  background: var(--surface-solid);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 40px 80px -40px rgba(0, 0, 0, .9);
+  overflow: hidden;
+}
+.palette__input {
+  width: 100%; padding: var(--sp-4);
+  border: 0; border-bottom: 1px solid var(--border);
+  background: transparent; color: var(--ink-1);
+  font: 400 var(--text-lg)/1.4 var(--font-body);
+}
+.palette__input:focus { outline: none; }
+.palette__list { list-style: none; margin: 0; padding: var(--sp-2); max-height: 46vh; overflow: auto; }
+.palette__item {
+  display: flex; align-items: center; gap: var(--sp-3);
+  padding: var(--sp-2) var(--sp-3);
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  font-size: var(--text-sm);
+  color: var(--ink-2);
+}
+.palette__item[aria-selected="true"] { background: color-mix(in oklch, var(--accent) 16%, transparent); color: var(--ink-1); }
+.palette__item .hint { margin-left: auto; font: 400 var(--text-xs) var(--font-mono); color: var(--ink-3); }
+.palette__empty { padding: var(--sp-5); text-align: center; color: var(--ink-3); font-size: var(--text-sm); }
+.palette__foot { display: flex; gap: var(--sp-3); padding: var(--sp-2) var(--sp-4); border-top: 1px solid var(--border); font-size: var(--text-xs); color: var(--ink-3); }
+
+/* ───────────────────────────── progressive enhancement ───────────────────────────── */
+
+/* Cross-document view transitions: silently ignored by older browsers. */
+@view-transition { navigation: auto; }
+::view-transition-old(root), ::view-transition-new(root) { animation-duration: 200ms; }
+
+/* Scroll-driven entrance for the browse layer only.
+   The v1 reduced-motion block disables this automatically. */
+@supports (animation-timeline: view()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .bento > * {
+      animation: card-rise linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 60%;
+    }
+    @keyframes card-rise { from { opacity: 0; transform: translateY(14px); } }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .plug-card { transform: none !important; }
+}
+
+@media print {
+  .palette-scrim, .term::before { display: none !important; }
+  body::after { display: none !important; }
+  .plug-card { border: 1px solid #ccc; box-shadow: none; background: #fff; break-inside: avoid; transform: none; }
+}
