@@ -44,7 +44,7 @@ function splitBlocks(text) {
       flush();
       continue;
     }
-    if (/^(#{1,6}\s+|[-*•]\s+|\d+[.)]\s+)/.test(line) && buf.length) {
+    if (/^(#{1,6}\s+|[-*•]\s+|\d+[.)]\s+|#{1,6}.+(假设|改动|评测|决策|Hypothesis|Change|Eval|Decision))/i.test(line) && buf.length) {
       flush();
     }
     buf.push(line);

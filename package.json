@@ -1,6 +1,6 @@
 {
   "name": "evolution-ledger",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "Append-only audit ledger for AI agent self-evolution — hypothesis, change, eval, rollback. Xiaoluo-themed.",
   "author": "Zijian Ni <xiaoni112233@outlook.com>",
   "license": "MIT",
