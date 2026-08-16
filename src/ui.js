@@ -150,26 +150,36 @@ function renderThemeDock(lang) {
 function renderPasteModal(lang) {
   if (!state.pasteOpen) return '';
   const preview = state.pastePreview;
+  const sample = lang === 'en'
+    ? `## Hypothesis\nIf we add a health probe, silent tool failures surface within one heartbeat.\n\n## Change\npolicy path: AGENTS.md#Reflex-7\nbefore → after: no check → Reflex 7 health probe\n\n## Eval\nmetric silent_failure_days: 8 → 0 days PASS\n\n## Decision\nkeep — detected ollama not enabled at boot`
+    : `## 假设\n如果加健康探针，工具静默故障会在一个心跳内暴露。\n\n## 改动\npolicy path: AGENTS.md#Reflex-7\nbefore → after: 无检查 → Reflex 7 健康探针\n\n## 评测\nmetric silent_failure_days: 8 → 0 days PASS\n\n## 决策\nkeep — 第一个心跳发现 ollama 没自启`;
   return `
   <div class="modal-root show" id="pasteModal">
     <div class="modal-card modal-wide">
       <div class="modal-head">
         <div>
+          <div class="wizard-steps">
+            <span class="ws on">1 ${lang==='en'?'Paste':'粘贴'}</span>
+            <span class="ws ${preview ? 'on' : ''}">2 ${lang==='en'?'Review gaps':'检查缺项'}</span>
+            <span class="ws">3 ${lang==='en'?'Hash-chain append':'写入哈希链'}</span>
+          </div>
           <h2>🤖 ${lang === 'en' ? 'Paste AI answer → structured cycle' : '粘贴 AI 回答 → 结构化 cycle'}</h2>
           <p class="modal-sub">${lang === 'en'
-            ? 'Don’t dump a monologue as a note. We parse hypothesis / change / eval / decision, show gaps, then append as a hash-chained cycle.'
-            : '别把整段独白塞成 note。我们会解析 假设/改动/评测/决策，标出缺项，再以哈希链式 cycle 写入。'}</p>
+            ? 'A monologue is not an audit trail. We force hypothesis / change / eval / decision, mark missing pieces, then append immutably.'
+            : '独白不是审计轨迹。强制拆成 假设/改动/评测/决策，标出缺项，再不可变写入。'}</p>
         </div>
         <button class="btn btn--ghost" id="closePaste">✕</button>
       </div>
-      <textarea id="pasteArea" class="modal-textarea" placeholder="${lang === 'en'
-        ? 'Example:\\n## Hypothesis\\nIf we add a health probe...\\n## Change\\npolicy AGENTS.md: no check → Reflex 7\\n## Eval\\nmetric silent_failure_days: 8 → 0 days PASS\\n## Decision\\nkeep — detected within one heartbeat'
-        : '示例：\\n## 假设\\n如果加健康探针...\\n## 改动\\npolicy AGENTS.md: 无检查 → Reflex 7\\n## 评测\\n指标 silent_failure_days: 8 → 0 days 通过\\n## 决策\\n保留 — 一个心跳内发现'}">${esc(state.pasteText)}</textarea>
+      <div class="paste-tools">
+        <button class="btn btn--ghost" id="fillSample">✨ ${lang==='en'?'Insert sample':'填入示例'}</button>
+        <button class="btn btn--ghost" id="clearPaste">Clear</button>
+      </div>
+      <textarea id="pasteArea" class="modal-textarea" placeholder="${esc(sample)}">${esc(state.pasteText)}</textarea>
       <div class="modal-actions">
         <button class="btn" id="previewPaste">${lang === 'en' ? 'Preview structure' : '预览结构'}</button>
         <button class="btn btn--primary" id="commitPaste" ${preview ? '' : 'disabled'}>${lang === 'en' ? 'Append to ledger' : '写入账本'}</button>
       </div>
-      ${preview ? renderPastePreview(preview, lang) : `<p class="modal-hint">${lang === 'en' ? 'Tip: use headings like Hypothesis / Change / Eval / Decision for best results.' : '提示：用「假设/改动/评测/决策」标题效果最好。'}</p>`}
+      ${preview ? renderPastePreview(preview, lang) : `<p class="modal-hint">${lang === 'en' ? 'Tip: headings Hypothesis / Change / Eval / Decision work best. Free-form text becomes a draft cycle with TODOs.' : '提示：用 Hypothesis/Change/Eval/Decision 标题效果最好。自由文本会变成带 TODO 的草稿 cycle。'}</p>`}
     </div>
   </div>`;
 }
@@ -432,6 +442,19 @@ function bind() {
   });
   document.getElementById('pasteArea')?.addEventListener('input', e => {
     state.pasteText = e.target.value;
+  });
+  document.getElementById('fillSample')?.addEventListener('click', () => {
+    const sample = state.lang === 'en'
+      ? `## Hypothesis\nIf we add a health probe, silent tool failures surface within one heartbeat.\n\n## Change\npolicy path: AGENTS.md#Reflex-7\nbefore → after: no check → Reflex 7 health probe\n\n## Eval\nmetric silent_failure_days: 8 → 0 days PASS\n\n## Decision\nkeep — detected ollama not enabled at boot`
+      : `## 假设\n如果加健康探针，工具静默故障会在一个心跳内暴露。\n\n## 改动\npolicy path: AGENTS.md#Reflex-7\nbefore → after: 无检查 → Reflex 7 健康探针\n\n## 评测\nmetric silent_failure_days: 8 → 0 days PASS\n\n## 决策\nkeep — 第一个心跳发现 ollama 没自启`;
+    state.pasteText = sample;
+    state.pastePreview = null;
+    render();
+  });
+  document.getElementById('clearPaste')?.addEventListener('click', () => {
+    state.pasteText = '';
+    state.pastePreview = null;
+    render();
   });
   document.getElementById('previewPaste')?.addEventListener('click', () => {
     state.pasteText = document.getElementById('pasteArea')?.value || '';
