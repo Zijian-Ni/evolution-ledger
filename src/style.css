@@ -450,3 +450,22 @@ html[data-bg="ember"] .aurora-bg {
 @media (prefers-reduced-motion: reduce) {
   .hero h1, .chain-pill, .modal-root.show .modal-card, .entry, .preview-cycle { animation: none !important; }
 }
+
+
+/* orchestra-grade v0.3.0 */
+:root {
+  --navy-900: #070c1a;
+  --navy-800: #0d1628;
+  --teal: #00d4aa;
+  --aqua: #00b8d9;
+  --violet: #7c4dff;
+  --pink: #e040fb;
+  --text: #e8f4ff;
+  --muted: #8ba8cc;
+  --line: rgba(0,212,170,.16);
+}
+.btn--primary { background: linear-gradient(135deg, #00d4aa, #00b8d9 50%, #7c4dff); }
+.brand-mark { background: linear-gradient(135deg, #00d4aa, #7c4dff); box-shadow: 0 0 22px rgba(0,212,170,.4); }
+.entry { box-shadow: 0 10px 30px rgba(0,0,0,.25); }
+.entry:hover { box-shadow: 0 16px 40px rgba(0,0,0,.35), 0 0 0 1px rgba(0,212,170,.2); }
+.hero h1 { background: linear-gradient(100deg, #fff 8%, #00d4aa 40%, #7c4dff 72%, #e040fb 96%); -webkit-background-clip: text; background-clip: text; color: transparent; }
