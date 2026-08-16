@@ -81,6 +81,31 @@ export function listGitAnchors(cwd = process.cwd()) {
   }
 }
 
+/**
+ * Keep only the anchors that belong to a given ledger file.
+ *
+ * Paths are compared after resolution so that `./ledger.jsonl`,
+ * `ledger.jsonl` and an absolute path all match the same ledger. When the
+ * caller cannot tell us which ledger it is, we return every anchor rather
+ * than silently claiming there are none — failing loud beats failing quiet
+ * for a verification tool.
+ *
+ * @param {Array<{path:string}>} anchors
+ * @param {string|null} ledgerPath
+ */
+export function filterAnchorsForLedger(anchors, ledgerPath) {
+  if (!ledgerPath) return anchors;
+  const target = path.resolve(ledgerPath);
+  const targetBase = path.basename(target);
+  return anchors.filter((a) => {
+    if (!a.path) return false;
+    if (path.resolve(a.path) === target) return true;
+    // Anchors written from a different working directory keep a relative
+    // path; fall back to the file name so those still match.
+    return !path.isAbsolute(a.path) && path.basename(a.path) === targetBase;
+  });
+}
+
 // ─── Layer 2: GitHub Gist (optional) ──────────────────────────────────────
 
 /**
@@ -162,7 +187,7 @@ export const VERDICT = {
  * @param {string} [cwd]
  * @returns {{ verdict: string, ok: boolean, count: number, issues: any[], anchors: any[] }}
  */
-export function verifyWithAnchors(ledger, cwd = process.cwd()) {
+export function verifyWithAnchors(ledger, cwd = process.cwd(), opts = {}) {
   const base = ledger.verify();
 
   if (!base.ok) {
@@ -178,7 +203,14 @@ export function verifyWithAnchors(ledger, cwd = process.cwd()) {
   // Build set of all hashes in the current chain
   const chainHashes = new Set(ledger.entries.map(e => e.hash));
 
-  const anchors = listGitAnchors(cwd);
+  // Anchors are stored per-repository, but the documented convention is one
+  // ledger PER AGENT. Without filtering by path, anchors belonging to a
+  // sibling ledger look like anchors whose hash is missing from this chain,
+  // and every honest ledger in a multi-agent repo reports HISTORY_REWRITTEN.
+  // A tamper alarm that fires on healthy data trains people to ignore it, so
+  // this filter is a correctness fix, not an optimisation.
+  const ledgerPath = opts.ledgerPath ?? ledger.filePath ?? null;
+  const anchors = filterAnchorsForLedger(listGitAnchors(cwd), ledgerPath);
 
   if (anchors.length === 0) {
     return {

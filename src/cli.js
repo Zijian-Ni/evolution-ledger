@@ -302,10 +302,14 @@ if (cmd === 'verify') {
   const fp = args._[1] || args.file || DEFAULT;
   const L = load(fp);
   const cwd = path.dirname(path.resolve(fp));
-  const v = verifyWithAnchors(L, cwd);
+  // Pass the ledger path so anchors belonging to a sibling ledger in the same
+  // repository are not mistaken for evidence that this history was rewritten.
+  const v = verifyWithAnchors(L, cwd, { ledgerPath: fp });
   console.log(JSON.stringify(v, null, 2));
   // exit 0 for ok states, 3 for broken/rewritten
-  const ok = v.verdict === VERDICT.VERIFIED_ANCHORED || v.verdict === VERDICT.VERIFIED_LOCAL_ONLY;
+  const ok = v.verdict === VERDICT.VERIFIED_ANCHORED
+    || v.verdict === VERDICT.VERIFIED_LOCAL_ONLY
+    || v.verdict === VERDICT.VERIFIED_SIGNED;
   process.exit(ok ? 0 : 3);
 }
 

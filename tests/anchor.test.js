@@ -150,3 +150,65 @@ test('listGitAnchors returns empty array in non-git dir', () => {
     rmSync(tmpDir, { recursive: true });
   }
 });
+
+/**
+ * Regression: anchors are stored per-repository, but the documented convention
+ * is one ledger PER AGENT. Before this fix, a sibling agent's anchor looked
+ * like an anchor whose hash was missing from this chain, so every honest
+ * ledger in a multi-agent repo reported HISTORY_REWRITTEN.
+ *
+ * A tamper alarm that fires on healthy data teaches people to ignore it, which
+ * is strictly worse than having no alarm at all.
+ */
+test('sibling ledgers in one repo do not trigger a false HISTORY_REWRITTEN', () => {
+  const tmpDir = mkdtempSync(join(tmpdir(), 'eledger-siblings-'));
+  try {
+    execFileSync('git', ['init'], { cwd: tmpDir, stdio: 'pipe' });
+    execFileSync('git', ['config', 'user.email', 't@t'], { cwd: tmpDir, stdio: 'pipe' });
+    execFileSync('git', ['config', 'user.name', 't'], { cwd: tmpDir, stdio: 'pipe' });
+    execFileSync('git', ['commit', '--allow-empty', '-m', 'init'], { cwd: tmpDir, stdio: 'pipe' });
+
+    // Agent A's ledger
+    const pathA = join(tmpDir, 'agent-a.jsonl');
+    const A = new Ledger(pathA);
+    A.append({ type: 'note', title: 'a1' });
+    A.append({ type: 'note', title: 'a2' });
+    writeFileSync(pathA, A.toJSONL());
+    anchorToGit(A.tipHash, pathA, tmpDir);
+
+    // Agent B's ledger, in the same repository
+    const pathB = join(tmpDir, 'agent-b.jsonl');
+    const B = new Ledger(pathB);
+    B.append({ type: 'note', title: 'b1' });
+    writeFileSync(pathB, B.toJSONL());
+    anchorToGit(B.tipHash, pathB, tmpDir);
+
+    // Both are untouched, so both must verify cleanly despite the other's
+    // anchor being present in the same git notes ref.
+    const loadedA = Ledger.fromJSONL(readFileSync(pathA, 'utf8'));
+    loadedA.filePath = pathA;
+    const resA = verifyWithAnchors(loadedA, tmpDir, { ledgerPath: pathA });
+    assert.equal(resA.verdict, VERDICT.VERIFIED_ANCHORED, 'agent A must not be accused');
+
+    const loadedB = Ledger.fromJSONL(readFileSync(pathB, 'utf8'));
+    loadedB.filePath = pathB;
+    const resB = verifyWithAnchors(loadedB, tmpDir, { ledgerPath: pathB });
+    assert.equal(resB.verdict, VERDICT.VERIFIED_ANCHORED, 'agent B must not be accused');
+
+    // And the real attack is still caught: rebuild A's history wholesale.
+    // Note the ledger constructor loads any existing file, so a genuine
+    // rewrite has to start from an empty chain rather than appending.
+    const forged = new Ledger(pathA);
+    forged.entries = [];
+    forged.append({ type: 'note', title: 'a1' });
+    forged.append({ type: 'note', title: 'REWRITTEN' });
+    writeFileSync(pathA, forged.toJSONL());
+
+    const tampered = Ledger.fromJSONL(readFileSync(pathA, 'utf8'));
+    tampered.filePath = pathA;
+    const resTampered = verifyWithAnchors(tampered, tmpDir, { ledgerPath: pathA });
+    assert.equal(resTampered.verdict, VERDICT.HISTORY_REWRITTEN, 'rewritten history must still be caught');
+  } finally {
+    rmSync(tmpDir, { recursive: true });
+  }
+});
