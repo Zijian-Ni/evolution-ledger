@@ -39,6 +39,7 @@ export const STRINGS = {
     trendRollbacks: 'Rollbacks',
     trendChanges: 'Changes',
     insights: 'Insights',
+    timelineHeading: 'Evolution timeline',
     heatmapTitle: 'Policy Heatmap',
     heatmapSub: 'Rollback rate by kind × week',
     // EL-4: Timeline
@@ -88,6 +89,7 @@ export const STRINGS = {
     trendRollbacks: '回滚次数',
     trendChanges: '改动次数',
     insights: '洞察',
+    timelineHeading: '进化时间线',
     heatmapTitle: '策略热力图',
     heatmapSub: '各类型改动的回滚率（按周）',
     // EL-4: Timeline

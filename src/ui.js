@@ -122,7 +122,13 @@ function render() {
     </section>
 
     ${renderInsightsPanel(L, lang)}
-    <section class="timeline" id="timeline">${renderEntries()}</section>
+    <section class="timeline" id="timeline" aria-labelledby="timeline-heading">
+      <!-- Each entry is an <h3>; without a section heading at <h2> the document
+           jumps straight from the page <h1> and screen reader users lose the
+           outline. Visually hidden because the timeline is self-evident. -->
+      <h2 id="timeline-heading" class="u-visually-hidden">${esc(t(lang, "timelineHeading"))}</h2>
+      ${renderEntries()}
+    </section>
     ` : `
       <div class="dropzone" id="drop">${esc(t(lang, 'drop'))}</div>
       <p style="text-align:center;color:var(--muted)">${esc(t(lang, 'empty'))}</p>
