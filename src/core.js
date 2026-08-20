@@ -266,6 +266,12 @@ export class Ledger {
  */
 const REQUIRED_FIELDS = ['id', 'ts', 'type', 'hash'];
 
+/** Shown when the file is a Traceboard trace, which has its own viewer. */
+const FOREIGN_TRACE_MESSAGE =
+  'This looks like a Traceboard trace (phase/agent/tool events), not an Evolution Ledger. ' +
+  'Traces record what an agent DID; a ledger records what was CHANGED and whether it helped. ' +
+  'Open this file at https://zijian-ni.github.io/traceboard/ instead.';
+
 /**
  * Parse JSONL into entries, refusing malformed input with a message that says
  * WHICH line and WHAT is wrong.
@@ -298,10 +304,19 @@ export function parseJSONL(text) {
       throw new Error('This looks like a JSON array but it is not valid JSON.');
     }
     if (!Array.isArray(arr)) throw new Error('Expected JSONL (one JSON object per line).');
+    if (looksLikeTrace(arr)) throw new Error(FOREIGN_TRACE_MESSAGE);
     return arr.map((entry, i) => validateEntry(entry, i + 1));
   }
 
   const lines = text.split(/\r?\n/);
+  const parsedObjects = [];
+  for (const raw of lines.slice(0, 10)) {
+    const t = raw.trim();
+    if (!t) continue;
+    try { parsedObjects.push(JSON.parse(t)); } catch { /* handled below */ }
+  }
+  if (looksLikeTrace(parsedObjects)) throw new Error(FOREIGN_TRACE_MESSAGE);
+
   const entries = [];
   for (let i = 0; i < lines.length; i++) {
     const raw = lines[i].trim();
@@ -321,6 +336,33 @@ export function parseJSONL(text) {
   }
 
   return entries;
+}
+
+/**
+ * Event types emitted by Traceboard / trace-kit. Reported 2026-08-21: a user
+ * uploaded a `trace.jsonl` here and was told to add `id` and `hash` to it —
+ * technically true, useless advice, because that file was never meant to be a
+ * ledger. Recognising a sibling tool's format and pointing at the right tool
+ * is far more helpful than listing the fields it "lacks".
+ */
+const TRACE_EVENT_TYPES = new Set([
+  'phase_start', 'phase_end', 'agent_call', 'agent_result',
+  'tool_call', 'tool_result', 'llm_call', 'llm_result',
+]);
+
+/**
+ * Does this look like a Traceboard trace rather than a ledger? Deliberately
+ * conservative: only claims a match when entries carry trace event types AND
+ * lack the ledger's identity fields, so a real ledger is never misdiagnosed.
+ */
+function looksLikeTrace(entries) {
+  if (!entries.length) return false;
+  const sample = entries.slice(0, 10);
+  const traceish = sample.filter(
+    e => e && typeof e === 'object' && TRACE_EVENT_TYPES.has(e.type)
+  ).length;
+  const hasLedgerIdentity = sample.some(e => e && (e.id !== undefined || e.hash !== undefined));
+  return traceish >= Math.ceil(sample.length / 2) && !hasLedgerIdentity;
 }
 
 /** Check one entry, naming the line and the exact missing/!wrong field. */
