@@ -1,0 +1,131 @@
+/* ============================================================
+   AURORA SKIN · Theme B「链墨 / Ledger Ink」 — evolution-ledger
+   Loaded AFTER style.css + aurora-ui. A tamper-evident ledger
+   becomes a sealed archive: ink paper, bilingual serif,
+   cinnabar seal, gold hairlines, chained blocks.
+   ============================================================ */
+
+:root {
+  --navy-900: #100e0b;                 /* ink paper */
+  --navy-800: #17140f;
+  --navy-700: #1e1a13;
+  --glass:    rgba(28, 24, 17, .6);
+  --glass-hi: rgba(38, 33, 24, .8);
+  --line:     rgba(214, 190, 140, .16); /* gold hairline */
+  --teal:     #c9a86a;                 /* 描金 gold takes teal slots */
+  --aqua:     #c9a86a;
+  --violet:   #d5442e;                 /* 朱砂 cinnabar takes violet slots */
+  --pink:     #e0684f;
+  --gold:     #c9a86a;
+  --rose:     #d5442e;
+  --text:     #ece4d4;
+  --muted:    #9a8f7a;
+  --ok:       #8fae6f;                 /* 竹青 */
+  --warn:     #d9a441;
+  --bad:      #c94f43;
+  --radius: 6px;
+  --font: "Noto Sans SC", "IBM Plex Sans", -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+  --mono: "JetBrains Mono", "SFMono-Regular", Menlo, Consolas, monospace;
+}
+
+/* ---- retire the aurora bands, bring in paper fiber ---- */
+.aurora-bg .aurora-band { display: none; }
+.aurora-bg .aurora-grain { opacity: .8; }
+.ink-grain {
+  position: fixed; inset: 0; z-index: 0; pointer-events: none; opacity: .5;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3CfeColorMatrix values='0 0 0 0 0.85 0 0 0 0 0.78 0 0 0 0 0.62 0 0 0 0.05 0'/%3E%3C/filter%3E%3Crect width='120' height='120' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ---- topbar: archive masthead ---- */
+.topbar {
+  background: rgba(16, 14, 11, .88);
+  border-bottom: 1px solid var(--line);
+  backdrop-filter: blur(10px);
+}
+
+/* ---- hero: bilingual serif + solid ink, no gradient text ---- */
+.hero h1 {
+  font-family: "Noto Serif SC", "Fraunces", "Songti SC", serif;
+  font-weight: 900; letter-spacing: .02em; line-height: 1.2;
+  background: none; color: var(--text);
+  -webkit-background-clip: initial; background-clip: initial;
+  -webkit-text-fill-color: currentColor;
+}
+.hero h1 .fallback { color: var(--text); }
+.hero p.sub { color: var(--muted); line-height: 2; }
+
+/* ---- the seal (injected by aurora-skin.js into .hero) ---- */
+.ink-seal {
+  width: 88px; height: 88px; margin: 26px auto 0;
+  border: 3.5px solid var(--rose); border-radius: 8px;
+  display: grid; place-items: center; transform: rotate(-4deg);
+  color: var(--rose);
+  font-family: "Noto Serif SC", serif; font-weight: 900; font-size: 26px;
+  letter-spacing: .08em; line-height: 1.25; text-align: center;
+  box-shadow: inset 0 0 20px rgba(213, 68, 46, .12);
+  animation: inkStamp .7s cubic-bezier(.2, 1.6, .3, 1) .4s backwards;
+  mask-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='90'%3E%3Cfilter id='r'%3E%3CfeTurbulence baseFrequency='0.5' numOctaves='3'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 1.6 -0.25'/%3E%3C/filter%3E%3Crect width='90' height='90' fill='%23fff' filter='url(%23r)'/%3E%3C/svg%3E");
+}
+@keyframes inkStamp {
+  0%   { transform: rotate(-4deg) scale(2);   opacity: 0; }
+  60%  { transform: rotate(-4deg) scale(.95); opacity: 1; }
+  100% { transform: rotate(-4deg) scale(1); }
+}
+.ink-seal + .ink-seal-cap {
+  display: block; text-align: center; margin-top: 8px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: .14em; color: var(--muted);
+}
+
+/* ---- buttons: seal & hairline ---- */
+.btn {
+  border-radius: 3px; border: 1px solid var(--line);
+  background: transparent; letter-spacing: .1em;
+  transition: .25s ease;
+}
+.btn:hover {
+  transform: none; border-color: var(--gold); color: var(--gold);
+  box-shadow: none; background: rgba(201, 168, 106, .06);
+}
+.btn--primary {
+  background: var(--rose); border-color: var(--rose); color: #fff7ef;
+  box-shadow: 3px 3px 0 rgba(213, 68, 46, .25);
+}
+.btn--primary:hover {
+  background: var(--rose); color: #fff7ef;
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 rgba(213, 68, 46, .3);
+}
+.btn--ghost { background: transparent; }
+
+/* ---- timeline: the chain becomes a gold thread with seal nodes ---- */
+.timeline::before {
+  background: linear-gradient(180deg, transparent, var(--gold) 8%, var(--gold) 92%, transparent) !important;
+  width: 1px !important; opacity: .55;
+}
+
+/* ---- cards / panels: bound volumes ---- */
+.stat, .metric, .insights-panel, .modal-card, .el-preset {
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: linear-gradient(170deg, var(--glass-hi), var(--glass));
+  backdrop-filter: none;
+}
+.stat .k, .preview-row .k { font-family: var(--mono); letter-spacing: .1em; color: var(--gold); }
+.chip { border-radius: 3px; font-family: var(--mono); }
+
+/* ---- section headings: 章节 rule ---- */
+h2, h3 { font-family: "Noto Serif SC", "Fraunces", serif; letter-spacing: .12em; }
+h2 { display: flex; align-items: center; gap: 14px; }
+h2::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+
+/* ---- hash strings read like rubbings ---- */
+.ws, code, .hash, .mono { font-family: var(--mono); color: var(--gold); }
+
+/* ---- modal ---- */
+.modal-root { background: rgba(10, 8, 6, .8); backdrop-filter: blur(6px); }
+.modal-head { border-bottom: 1px solid var(--line); }
+
+/* ---- motion safety ---- */
+@media (prefers-reduced-motion: reduce) {
+  .ink-seal { animation: none; }
+}

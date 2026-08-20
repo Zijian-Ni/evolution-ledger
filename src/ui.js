@@ -1,6 +1,8 @@
 import './style.css';
 import './aurora-ui/aurora-ui.css';
 import './aurora-ui/aurora-ui.v2.css';
+import './aurora-skin.css';
+import './aurora-skin.js';
 import { Ledger, formatMarkdown } from './core.js';
 import { t, STRINGS } from './i18n.js';
 import { parseAITextToDrafts, applyDraftsToLedger } from './parse-ai.js';
