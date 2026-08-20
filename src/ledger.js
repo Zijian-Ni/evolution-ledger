@@ -3,7 +3,7 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { Ledger as CoreLedger } from './core.js';
+import { Ledger as CoreLedger, parseJSONL } from './core.js';
 
 export * from './core.js';
 
@@ -15,7 +15,13 @@ export class Ledger extends CoreLedger {
 
   _load() {
     const text = fs.readFileSync(this.filePath, 'utf8');
-    this.entries = text.split(/\r?\n/).filter(Boolean).map(l => JSON.parse(l));
+    try {
+      this.entries = parseJSONL(text);
+    } catch (err) {
+      // Name the file — a bare "line 3 is invalid" is useless when a CLI
+      // touches several ledgers.
+      throw new Error(`${this.filePath}: ${err.message}`);
+    }
   }
 
   save() {
@@ -30,7 +36,7 @@ export class Ledger extends CoreLedger {
 
   static fromJSONL(text) {
     const L = new Ledger(null);
-    L.entries = text.split(/\r?\n/).filter(Boolean).map(l => JSON.parse(l));
+    L.entries = parseJSONL(text);
     return L;
   }
 }

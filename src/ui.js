@@ -439,18 +439,23 @@ function renderEntries() {
     const isBroken = state.verifyResult && !state.verifyResult.ok &&
       state.verifyResult.issues?.some(iss => iss.id === e.id || iss.index === i);
 
+    // Defence in depth: parseJSONL already guarantees these, but a renderer
+    // should never be the thing that explodes on unexpected data.
+    const shortHash = String(e.hash ?? '').slice(0, 12);
+    const body = typeof e.body === 'string' ? e.body : '';
+
     return `
-    <article class="entry ${isRolled ? 'reverted entry--reverted' : ''} ${isBroken ? 'entry--broken' : ''}" data-type="${e.type}" data-hash="${e.hash}" style="animation-delay:${Math.min(i * 30, 400)}ms" id="entry-${e.hash.slice(0,12)}">
+    <article class="entry ${isRolled ? 'reverted entry--reverted' : ''} ${isBroken ? 'entry--broken' : ''}" data-type="${e.type}" data-hash="${esc(e.hash ?? '')}" style="animation-delay:${Math.min(i * 30, 400)}ms" id="entry-${shortHash}">
       <div class="entry-head">
         <span class="tag ${e.type}">${ICONS[e.type] || ''} ${e.type}</span>
         <span class="agent-tag">@${esc(e.agent)}</span>
         ${isRolled ? `<span class="chip chip--warn">${t(state.lang, 'revertedEntry')}</span>` : ''}
         ${isBroken ? `<span class="chip chip--danger">${t(state.lang, 'brokenEntry')}</span>` : ''}
         ${follows}
-        <span class="hash">${esc(e.hash.slice(0, 12))}…</span>
+        <span class="hash">${esc(shortHash)}…</span>
       </div>
       <h3 class="${isRolled ? 'title--reverted' : ''}">${esc(e.title || e.type)}</h3>
-      ${e.body ? `<p>${esc(e.body.slice(0, 220))}${e.body.length > 220 ? '…' : ''}</p>` : ''}
+      ${body ? `<p>${esc(body.slice(0, 220))}${body.length > 220 ? '…' : ''}</p>` : ''}
       ${metric}
     </article>`;
   }).join('');
@@ -528,12 +533,36 @@ async function loadDemo() {
   }
 }
 
-function loadText(text) {
+function loadText(text, filename) {
+  let parsed;
   try {
-    state.ledger = Ledger.fromJSONL(text);
+    parsed = Ledger.fromJSONL(text);
+  } catch (err) {
+    // The parser reports the line and field; keep that intact and add the
+    // filename plus what a valid line looks like, so the message is
+    // actionable on its own.
+    const where = filename ? `${filename}\n\n` : '';
+    alert(
+      `${where}Could not read this ledger.\n\n${err.message}\n\n` +
+      `Expected JSONL — one JSON object per line, e.g.\n` +
+      `{"id":"…","ts":"2026-01-01T00:00:00Z","type":"note","hash":"…"}`
+    );
+    return;
+  }
+  // "Zero entries" is valid data but almost certainly not what the user meant
+  // when they picked a file, so say so rather than showing a blank screen.
+  if (!parsed.entries.length) {
+    alert(`${filename ? filename + '\n\n' : ''}This file contains no ledger entries.`);
+    return;
+  }
+  // A parse failure must not wipe the ledger already on screen; only swap it
+  // in once we know the new one is good.
+  state.ledger = parsed;
+  try {
     render();
   } catch (err) {
-    alert('Invalid ledger: ' + err.message);
+    console.error('render failed', err);
+    alert(`The ledger loaded but could not be displayed: ${err.message}`);
   }
 }
 
@@ -553,7 +582,9 @@ function bind() {
   document.getElementById('fileBtn')?.addEventListener('click', () => document.getElementById('fileInput').click());
   document.getElementById('fileInput')?.addEventListener('change', async ev => {
     const f = ev.target.files?.[0];
-    if (f) loadText(await f.text());
+    if (f) loadText(await f.text(), f.name);
+    // Reset so re-picking the SAME file after fixing it still fires `change`.
+    ev.target.value = '';
   });
   document.getElementById('verifyBtn')?.addEventListener('click', () => {
     if (!state.ledger) return alert(t(state.lang, 'empty'));
@@ -712,7 +743,7 @@ function bind() {
   drop.addEventListener('drop', async ev => {
     ev.preventDefault();
     const f = ev.dataTransfer?.files?.[0];
-    if (f) loadText(await f.text());
+    if (f) loadText(await f.text(), f.name);
   });
 }
 

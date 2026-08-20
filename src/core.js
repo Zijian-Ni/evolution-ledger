@@ -253,10 +253,99 @@ export class Ledger {
 
   static fromJSONL(text) {
     const L = new Ledger(null);
-    L.entries = text.split(/\r?\n/).filter(Boolean).map(l => JSON.parse(l));
+    L.entries = parseJSONL(text);
     return L;
   }
 
+}
+
+/**
+ * Fields every entry must carry for the ledger to be renderable and
+ * verifiable. `hash` and `prevHash` are what make it a chain; the rest is what
+ * the UI unconditionally reads.
+ */
+const REQUIRED_FIELDS = ['id', 'ts', 'type', 'hash'];
+
+/**
+ * Parse JSONL into entries, refusing malformed input with a message that says
+ * WHICH line and WHAT is wrong.
+ *
+ * Why this exists: the UI used to hand raw `JSON.parse` output straight to the
+ * renderer, which does `e.hash.slice(0, 12)`. A file that parsed as JSON but
+ * wasn't a ledger (an exported array, a pretty-printed object, a log of some
+ * other shape) therefore failed with "Cannot read properties of undefined
+ * (reading 'slice')" — an error that names no line, no field, and no file, and
+ * sends you looking in the renderer instead of at your input.
+ *
+ * Validation belongs here, at the boundary, where we still know the line
+ * number.
+ */
+export function parseJSONL(text) {
+  // An empty ledger is legitimate, not malformed: `init` writes an empty file
+  // and then appends the genesis entry into it. The parser's job is to reject
+  // data it cannot trust — deciding whether "zero entries" is interesting is
+  // the caller's call (the web UI does warn about it).
+  if (typeof text !== 'string' || !text.trim()) return [];
+
+  // A common mistake: exporting a JSON array instead of JSONL. That is
+  // recoverable and worth accepting rather than lecturing the user about.
+  const trimmed = text.trim();
+  if (trimmed.startsWith('[')) {
+    let arr;
+    try {
+      arr = JSON.parse(trimmed);
+    } catch {
+      throw new Error('This looks like a JSON array but it is not valid JSON.');
+    }
+    if (!Array.isArray(arr)) throw new Error('Expected JSONL (one JSON object per line).');
+    return arr.map((entry, i) => validateEntry(entry, i + 1));
+  }
+
+  const lines = text.split(/\r?\n/);
+  const entries = [];
+  for (let i = 0; i < lines.length; i++) {
+    const raw = lines[i].trim();
+    if (!raw) continue;
+    let obj;
+    try {
+      obj = JSON.parse(raw);
+    } catch {
+      // Pretty-printed JSON is the other common mistake — one object spread
+      // over many lines. Say so instead of "unexpected token".
+      const hint = raw === '{' || raw.endsWith(',')
+        ? ' (JSONL needs one complete JSON object per line — this file looks pretty-printed)'
+        : '';
+      throw new Error(`Line ${i + 1} is not valid JSON${hint}.`);
+    }
+    entries.push(validateEntry(obj, i + 1));
+  }
+
+  return entries;
+}
+
+/** Check one entry, naming the line and the exact missing/!wrong field. */
+function validateEntry(entry, line) {
+  if (entry === null || typeof entry !== 'object' || Array.isArray(entry)) {
+    throw new Error(`Line ${line}: expected a JSON object.`);
+  }
+  const missing = REQUIRED_FIELDS.filter(f => entry[f] === undefined || entry[f] === null);
+  if (missing.length) {
+    throw new Error(
+      `Line ${line} is missing required field${missing.length > 1 ? 's' : ''}: ${missing.join(', ')}. ` +
+      `Every entry needs ${REQUIRED_FIELDS.join(', ')}.`
+    );
+  }
+  for (const f of REQUIRED_FIELDS) {
+    if (typeof entry[f] !== 'string') {
+      throw new Error(`Line ${line}: "${f}" must be a string, got ${typeof entry[f]}.`);
+    }
+  }
+  if (!ENTRY_TYPES.includes(entry.type)) {
+    throw new Error(
+      `Line ${line}: unknown type "${entry.type}". Expected one of: ${ENTRY_TYPES.join(', ')}.`
+    );
+  }
+  return entry;
 }
 
 export function formatMarkdown(ledger) {
