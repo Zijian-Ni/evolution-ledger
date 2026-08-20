@@ -360,7 +360,7 @@ export function formatMarkdown(ledger) {
     }[e.type] || '•';
     md += `## ${icon} ${e.type} · ${e.title}\n`;
     md += `- **id:** \`${e.id}\`\n`;
-    md += `- **hash:** \`${e.hash.slice(0, 16)}…\`\n`;
+    md += `- **hash:** \`${String(e.hash ?? '').slice(0, 16)}…\`\n`;
     md += `- **time:** ${e.ts} · **agent:** ${e.agent}\n`;
     if (e.body) md += `\n${e.body}\n`;
     if (e.change) md += `\n\`\`\`\nkind: ${e.change.kind}\npath: ${e.change.path || ''}\n${e.change.summary || ''}\n\`\`\`\n`;
